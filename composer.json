@@ -1,6 +1,6 @@
 {
-    "name": "phperf/histogram",
-    "description": "The PHP Unit Testing framework.",
+    "name": "phperf/cluster-stats",
+    "description": "Streaming clusterized stats collector.",
     "type": "library",
     "autoload": {
         "psr-4": {

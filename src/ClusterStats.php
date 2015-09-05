@@ -8,20 +8,24 @@
 
 namespace Phperf;
 
-
-use Phperf\Histogram\Node;
-
-class Histogram
+class ClusterStats
 {
     public $maxBuckets = 10;
 
     private $buckets = 0;
-    private $index;
     private $min;
     private $max;
+    private $totalCount = 0;
+    private $arithmeticAverage = 0;
+    public $index;
 
     public function add($value)
     {
+        $this->arithmeticAverage = $this->arithmeticAverage * ($this->totalCount / ($this->totalCount + 1))
+            + $value / ($this->totalCount + 1);
+
+        ++$this->totalCount;
+
         if (null === $this->index) {
             $this->index = array(array($value, $value, 1));
             $this->min = $this->max = $value;
@@ -42,7 +46,7 @@ class Histogram
                 ++$this->index[0][2];
             }
             elseif ($value === $this->max) {
-                ++$this->index[$this->buckets-1][2];
+                ++$this->index[$this->buckets - 1][2];
             }
             else {
                 $this->insert($value);
@@ -101,19 +105,47 @@ class Histogram
     public function shrink() {
         //echo 's!';
         //print_r($this->index);
-        $min = $this->index[0][2] + $this->index[1][2];
-        $position = 0;
-        for ($i = 1; $i < $this->buckets - 1; ++$i) {
-            $sum = $this->index[$i][2] + $this->index[$i + 1][2];
+        $minPosition = 0;
+        $minCount = $this->index[$minPosition][2];
+        $mergePosition = 1;
+        $mergeCount = $this->index[$mergePosition][2];
+
+        //echo 's: ', $min, PHP_EOL;
+        for ($position = 1; $position < $this->buckets; ++$position) {
+            $currentCount = $this->index[$position][2];
+            if ($position === $this->buckets - 1) {
+                $currentMergePosition = $position - 1;
+            }
+            else {
+                $currentMergePosition = $this->index[$position + 1][2] < $this->index[$position - 1][2]
+                    ? $position + 1
+                    : $position - 1;
+            }
+            $currentMergeCount = $this->index[$currentMergePosition][2];
+
+            //echo implode(':', $this->index[$i]), PHP_EOL;
             //echo implode(':', array($min, $sum, $position, $i)), PHP_EOL;
-            if ($sum < $min) {
-                $position = $i;
-                $min = $sum;
+            if ($currentCount < $minCount
+                || ($currentCount === $minCount
+                    && $currentMergeCount < $mergeCount)) {
+                $minPosition = $position;
+                $minCount = $currentCount;
+                $mergePosition = $currentMergePosition;
+                $mergeCount = $currentMergeCount;
             }
         }
-        $this->index[$position][1] = $this->index[$position + 1][1];
-        $this->index[$position][2] += $this->index[$position + 1][2];
-        unset($this->index[$position + 1]);
+
+
+        //echo 'sh: ', $minPosition, ' + ', $mergePosition, ' with ', $minCount, ' + ', $mergeCount, PHP_EOL;
+
+        if ($mergePosition > $minPosition) {
+            $this->index[$minPosition][1] = $this->index[$mergePosition][1];
+        }
+        else {
+            $this->index[$minPosition][0] = $this->index[$mergePosition][0];
+        }
+        $this->index[$minPosition][2] += $this->index[$mergePosition][2];
+        unset($this->index[$mergePosition]);
         $this->index = array_values($this->index);
         $this->buckets--;
     }

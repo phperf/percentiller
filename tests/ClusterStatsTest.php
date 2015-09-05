@@ -6,14 +6,14 @@
  * Date: 02.09.2015
  * Time: 21:13
  */
-class HistogramTest extends PHPUnit_Framework_TestCase
+class ClusterStatsTest extends PHPUnit_Framework_TestCase
 {
     public function testOne() {
-        $h = new \Phperf\Histogram();
-        $h->maxBuckets = 50;
+        $h = new \Phperf\ClusterStats();
+        $h->maxBuckets = 30;
         srand(1);
-        for ($i = 0; $i < 10000; ++$i) {
-            $item = rand(10,3000);
+        for ($i = 0; $i < 40000; ++$i) {
+            $item = rand(10000, 300000) / 1000;
             //echo $item, PHP_EOL;
             $h->add($item);
         }
@@ -22,6 +22,11 @@ class HistogramTest extends PHPUnit_Framework_TestCase
         //foreach ($items as $item) {
         //    $h->add($item);
         //}
+
+        foreach ($h->index as $bucket) {
+            $bucket []= $bucket[1] - $bucket[0];
+            print_r($bucket);
+        }
         print_r($h);
 
     }
