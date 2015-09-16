@@ -1,5 +1,5 @@
 {
-    "name": "phperf/cluster-stats",
+    "name": "phperf/percentiller",
     "description": "Streaming clusterized stats collector.",
     "type": "library",
     "autoload": {
