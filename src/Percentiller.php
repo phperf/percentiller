@@ -7,19 +7,26 @@ class Percentiller
     public $maxBuckets = 10;
 
     private $totalBuckets = 0;
+    /** @var  mixed */
     public $min;
+    /** @var  mixed */
     public $max;
+    /** @var int  */
     public $totalCount = 0;
+    /** @var double  */
     public $arithmeticAverage = 0;
+    /** @var  array */
     public $buckets;
 
 
+    /** @var int  */
     public $captureTopItems = 0;
     private $topMetas = array();
     private $topValues = array();
     private $topCount = 0;
     private $topLast = null;
 
+    /** @var int  */
     public $captureBottomItems = 0;
     private $bottomMetas = array();
     private $bottomValues = array();
@@ -141,8 +148,6 @@ class Percentiller
 
 
     private function shrink() {
-        //echo 's!';
-        //print_r($this->index);
         $minPosition = 0;
         $minCount = $this->buckets[$minPosition][2];
         $mergePosition = 1;
@@ -186,7 +191,7 @@ class Percentiller
         $currentCount = 0;
         $percentileCount = $this->totalCount * $percentile;
         $bucket = array(0, 0, 0);
-        for ($i = 0; $i < count($this->buckets); ++$i) {
+        for ($i = 0; $i < $this->totalBuckets; ++$i) {
             $bucket = $this->buckets[$i];
             $currentCount += $bucket[2];
             if ($currentCount >= $percentileCount) {
@@ -200,7 +205,7 @@ class Percentiller
         $currentCount = 0;
         $percentileCount = $this->totalCount * $percentile;
         $bucket = array(0, 0, 0);
-        for ($i = count($this->buckets) - 1; $i >= 0; --$i) {
+        for ($i = $this->totalBuckets - 1; $i >= 0; --$i) {
             $bucket = $this->buckets[$i];
             $currentCount += $bucket[2];
             if ($currentCount >= $percentileCount) {
