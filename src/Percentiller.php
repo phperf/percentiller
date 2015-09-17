@@ -1,14 +1,8 @@
 <?php
-/**
- * Created by PhpStorm.
- * User: vearutop
- * Date: 02.09.2015
- * Time: 21:13
- */
 
 namespace Phperf;
 
-class ClusterStats
+class Percentiller
 {
     public $maxBuckets = 10;
 
@@ -19,27 +13,81 @@ class ClusterStats
     public $arithmeticAverage = 0;
     public $buckets;
 
-    public function add($value)
+
+    public $captureTopItems = 0;
+    private $topMetas = array();
+    private $topValues = array();
+    private $topCount = 0;
+    private $topLast = null;
+
+    public $captureBottomItems = 0;
+    private $bottomMetas = array();
+    private $bottomValues = array();
+    private $bottomCount = 0;
+    private $bottomLast = null;
+
+    private $sampleId = 0;
+
+    public function add($value, $meta = false)
     {
         $this->arithmeticAverage = $this->arithmeticAverage * ($this->totalCount / ($this->totalCount + 1))
             + $value / ($this->totalCount + 1);
 
         ++$this->totalCount;
 
+
+        if ($this->captureTopItems) {
+            if ($this->topCount < $this->captureTopItems || $this->topLast === null || $this->topLast < $value) {
+                ++$this->sampleId;
+                $this->topMetas [$this->sampleId]= $meta;
+                $this->topValues [$this->sampleId]= $value;
+                ++$this->topCount;
+
+                if ($this->topCount > $this->captureTopItems) {
+                    arsort($this->topValues);
+                    end($this->topValues);
+                    $sampleId = key($this->topValues);
+                    unset($this->topValues[$sampleId]);
+                    unset($this->topMetas[$sampleId]);
+                    --$this->topCount;
+                }
+            }
+        }
+
+
+        if ($this->captureBottomItems) {
+            if ($this->bottomCount < $this->captureBottomItems || $this->bottomLast === null || $this->bottomLast > $value) {
+                ++$this->sampleId;
+                $this->bottomMetas [$this->sampleId]= $meta;
+                $this->bottomValues [$this->sampleId]= $value;
+                ++$this->bottomCount;
+
+                if ($this->bottomCount > $this->captureBottomItems) {
+                    asort($this->bottomValues);
+                    end($this->bottomValues);
+                    $sampleId = key($this->bottomValues);
+                    unset($this->bottomValues[$sampleId]);
+                    unset($this->bottomMetas[$sampleId]);
+                    --$this->bottomCount;
+                }
+            }
+        }
+
+
         if (null === $this->buckets) {
-            $this->buckets = array(array($value, $value, 1));
+            $this->buckets = array(array($value, $value, 1, $meta));
             $this->min = $this->max = $value;
             $this->totalBuckets = 1;
         }
         else {
             if ($value < $this->min) {
                 $this->min = $value;
-                array_unshift($this->buckets, array($value, $value, 1));
+                array_unshift($this->buckets, array($value, $value, 1, $meta));
                 $this->totalBuckets++;
             }
             elseif ($value > $this->max) {
                 $this->max = $value;
-                array_push($this->buckets, array($value, $value, 1));
+                array_push($this->buckets, array($value, $value, 1, $meta));
                 $this->totalBuckets++;
             }
             elseif ($value === $this->min) {
@@ -49,7 +97,7 @@ class ClusterStats
                 ++$this->buckets[$this->totalBuckets - 1][2];
             }
             else {
-                $this->insert($value);
+                $this->insert($value, $meta);
             }
         }
 
@@ -58,15 +106,11 @@ class ClusterStats
         }
     }
 
-    private function insert($value) {
+    private function insert($value, $meta = false) {
         $left = 0;
         $right = $this->totalBuckets - 1;
-        //var_dump($left, $right, $value);
-        //print_r($this->index);
-        //die('!');
         while ($right - $left > 0) {
             $position = (int)(($right + $left)/2);
-            //var_dump($position);
             $item = $this->buckets[$position];
             if ($value < $item[0]) {
                 $right = $position - 1;
@@ -78,27 +122,21 @@ class ClusterStats
                 ++$this->buckets[$position][2];
                 return;
             }
-           // var_dump($left, $right);
-            //die('!!');
         }
 
         $position = $left;
         $item = $this->buckets[$position];
         if ($value < $item[0]) {
-            array_splice($this->buckets, $position, 0, array(array($value, $value, 1)));
+            array_splice($this->buckets, $position, 0, array(array($value, $value, 1, $meta)));
             ++$this->totalBuckets;
         }
         elseif ($value > $item[1]) {
-            array_splice($this->buckets, $position + 1, 0, array(array($value, $value, 1)));
+            array_splice($this->buckets, $position + 1, 0, array(array($value, $value, 1, $meta)));
             ++$this->totalBuckets;
         }
         else {
             ++$this->buckets[$position][2];
         }
-
-            //print_r($this->index);
-            //die('SSS');
-
     }
 
 
@@ -110,7 +148,6 @@ class ClusterStats
         $mergePosition = 1;
         $mergeCount = $this->buckets[$mergePosition][2];
 
-        //echo 's: ', $min, PHP_EOL;
         for ($position = 1; $position < $this->totalBuckets; ++$position) {
             $currentCount = $this->buckets[$position][2];
             if ($position === $this->totalBuckets - 1) {
@@ -122,9 +159,6 @@ class ClusterStats
                     : $position - 1;
             }
             $currentMergeCount = $this->buckets[$currentMergePosition][2];
-
-            //echo implode(':', $this->index[$i]), PHP_EOL;
-            //echo implode(':', array($min, $sum, $position, $i)), PHP_EOL;
             if ($currentCount < $minCount
                 || ($currentCount === $minCount
                     && $currentMergeCount < $mergeCount)) {
@@ -134,9 +168,6 @@ class ClusterStats
                 $mergeCount = $currentMergeCount;
             }
         }
-
-
-        //echo 'sh: ', $minPosition, ' + ', $mergePosition, ' with ', $minCount, ' + ', $mergeCount, PHP_EOL;
 
         if ($mergePosition > $minPosition) {
             $this->buckets[$minPosition][1] = $this->buckets[$mergePosition][1];
@@ -177,6 +208,30 @@ class ClusterStats
             }
         }
         return $bucket[0];
+    }
+
+    public function getTopValues() {
+        return array_values($this->topValues);
+    }
+
+    public function getTopMetas() {
+        $result = array();
+        foreach ($this->topValues as $sampleId => $tmp) {
+            $result []= $this->topMetas[$sampleId];
+        }
+        return $result;
+    }
+
+    public function getBottomValues() {
+        return array_values($this->bottomValues);
+    }
+
+    public function getBottomMetas() {
+        $result = array();
+        foreach ($this->bottomValues as $sampleId => $tmp) {
+            $result []= $this->bottomMetas[$sampleId];
+        }
+        return $result;
     }
 
 }
