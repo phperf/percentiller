@@ -15,7 +15,7 @@ Approximates percentiles bucketing the data.
 ```php
 $stats = new \Phperf\Percentiller();
 
-// approximation level, more buckets - higher deistribution definition for more CPU and memory
+// approximation level, more buckets - higher distribution definition for more CPU and memory
 $stats->maxBuckets = 10;
 
 // capture values and meta for 5 items with lowest values
